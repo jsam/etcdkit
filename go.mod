@@ -1,4 +1,4 @@
-module github.com/jsam/etcstruct
+module github.com/jsam/etcdkit
 
 go 1.22.5
 

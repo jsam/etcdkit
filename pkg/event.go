@@ -1,4 +1,4 @@
-package etcstruct
+package etcdkit
 
 import (
 	"encoding/json"

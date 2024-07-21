@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	etcdbus "github.com/jsam/etcstruct/pkg"
+	etcdbus "github.com/jsam/etcdkit/pkg"
 )
 
 func main() {
