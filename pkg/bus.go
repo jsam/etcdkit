@@ -37,7 +37,7 @@ func matchTopic(subscriptionTopic, eventTopic string) bool {
 }
 
 type EventBus struct {
-	client      *clientv3.Client
+	client      etcdClientInterface
 	prefix      string
 	subscribers map[string][]chan<- *Event
 	mu          sync.RWMutex
@@ -103,6 +103,10 @@ func (eb *EventBus) watch(topic string, ch chan<- *Event) {
 	watchChan := eb.client.Watch(context.Background(), watchPrefix, clientv3.WithPrefix())
 
 	for response := range watchChan {
+		if response.Err() != nil {
+			fmt.Printf("Watch error: %v\n", response.Err())
+			continue
+		}
 		for _, ev := range response.Events {
 			fmt.Printf("Received event from etcd: Type=%s, Key=%s\n", ev.Type, string(ev.Kv.Key))
 			if ev.Type == clientv3.EventTypePut {
@@ -132,6 +136,9 @@ func (eb *EventBus) Unsubscribe(topic string, ch chan<- *Event) {
 				eb.subscribers[topic] = append(channels[:i], channels[i+1:]...)
 				break
 			}
+		}
+		if len(eb.subscribers[topic]) == 0 {
+			delete(eb.subscribers, topic)
 		}
 	}
 }

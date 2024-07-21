@@ -6,21 +6,21 @@ import (
 	"log"
 	"time"
 
-	etcdbus "github.com/jsam/etcdkit/pkg"
+	etcdkit "github.com/jsam/etcdkit/pkg"
 )
 
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	eb, err := etcdbus.NewEventBus([]string{"localhost:2379"}, "/pubsub")
+	eb, err := etcdkit.NewEventBus([]string{"localhost:2379"}, "/pubsub")
 	if err != nil {
 		log.Fatalf("Failed to create EventBus: %v", err)
 	}
 	defer eb.Close()
 
 	// Subscriber
-	sub, err := etcdbus.NewSubscriber(eb, "sports/football")
+	sub, err := etcdkit.NewSubscriber(eb, "sports/football")
 	if err != nil {
 		log.Fatalf("Failed to create subscriber: %v", err)
 	}
@@ -33,7 +33,7 @@ func main() {
 	// Publisher
 	go func() {
 		for i := 0; i < 10; i++ {
-			event := etcdbus.NewEvent("sports/football", []byte(fmt.Sprintf("Event %d", i)))
+			event := etcdkit.NewEvent("sports/football", []byte(fmt.Sprintf("Event %d", i)))
 			err := eb.Publish(ctx, event)
 			if err != nil {
 				log.Printf("Failed to publish event: %v", err)

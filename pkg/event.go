@@ -28,16 +28,16 @@ func (e *Event) Marshal() ([]byte, error) {
 }
 
 func UnmarshalEvent(data []byte) (*Event, error) {
-	var e Event
-	err := json.Unmarshal(data, &e)
+	var event Event
+	err := json.Unmarshal(data, &event)
 	if err != nil {
 		return nil, err
 	}
-	return &e, nil
+	return &event, nil
 }
 
 func generateID() string {
 	// Implement a unique ID generation method (e.g., UUID)
 	// For simplicity, we'll use a timestamp-based ID here
-	return time.Now().Format("20060102150405.000")
+	return time.Now().UTC().Format("20060102150405.000000")
 }

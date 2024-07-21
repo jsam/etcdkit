@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"sync"
 	"time"
-
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type Subscriber struct {
@@ -15,7 +13,7 @@ type Subscriber struct {
 	ch            <-chan *Event
 	sendCh        chan<- *Event
 	ackPrefix     string
-	client        *clientv3.Client
+	client        etcdClientInterface
 	pendingAcks   map[string]time.Time
 	mu            sync.Mutex
 	maxRetries    int
