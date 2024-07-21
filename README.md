@@ -5,11 +5,11 @@ etcstruct is a comprehensive, etcd-based distributed systems toolkit implemented
 ## Features
 
 ### Implemented
-- Publish-Subscribe (Pub/Sub) System
+
 - Stack
 - Queue
 - Graph
-- Event Bus
+- Event Bus / PubSub
 
 ### Upcoming
 - Distributed Lock
