@@ -18,7 +18,7 @@ etcstruct is a comprehensive, etcd-based distributed systems toolkit implemented
 - Distributed Configuration
 - Rate Limiter
 - Job Queue
-- Workflow Engine
+- Workflow Processor
 
 ## Installation
 
@@ -29,7 +29,7 @@ go get github.com/jsam/etcstruct
 # Usage
 
 Here's a quick example using the Pub/Sub system:
-```
+```go
 import "github.com/jsam/etcstruct/pkg"
 
 // Create EventBus
