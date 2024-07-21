@@ -1,6 +1,6 @@
-# etcstruct
+# etcdkit
 
-etcstruct is a comprehensive, etcd-based distributed systems toolkit implemented in Go. It provides a collection of data structures and patterns for building robust, distributed applications based on etcd.
+etcdkit is a comprehensive, etcd-based distributed systems toolkit implemented in Go. It provides a collection of data structures and patterns for building robust, distributed applications based on etcd.
 
 ## Features
 
@@ -23,14 +23,14 @@ etcstruct is a comprehensive, etcd-based distributed systems toolkit implemented
 ## Installation
 
 ```bash
-go get github.com/jsam/etcstruct
+go get github.com/jsam/etcdkit
 ```
 
 # Usage
 
 Here's a quick example using the Pub/Sub system:
 ```go
-import "github.com/jsam/etcstruct/pkg"
+import "github.com/jsam/etcdkit/pkg"
 
 // Create EventBus
 eb, _ := etcdbus.NewEventBus([]string{"localhost:2379"}, "/pubsub")
