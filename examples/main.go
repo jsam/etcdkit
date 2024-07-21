@@ -6,40 +6,56 @@ import (
 	"log"
 	"time"
 
-	"github.com/jsam/etcdbus"
+	etcdbus "github.com/jsam/etcstruct/pkg"
 )
 
 func main() {
-	// Create a new EventBus
-	eb, err := etcdbus.NewEventBus([]string{"localhost:2379"}, "/events")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	eb, err := etcdbus.NewEventBus([]string{"localhost:2379"}, "/pubsub")
 	if err != nil {
 		log.Fatalf("Failed to create EventBus: %v", err)
 	}
 	defer eb.Close()
 
-	// Subscribe to a topic
-	ch, err := eb.Subscribe("test-topic")
+	// Subscriber
+	sub, err := etcdbus.NewSubscriber(eb, "sports/football")
 	if err != nil {
-		log.Fatalf("Failed to subscribe: %v", err)
+		log.Fatalf("Failed to create subscriber: %v", err)
 	}
+	sub.Start()
+	defer sub.Close()
 
-	// Start a goroutine to receive events
+	// Add a small delay to ensure the subscriber is ready
+	time.Sleep(time.Second)
+
+	// Publisher
 	go func() {
-		for event := range ch {
-			fmt.Printf("Received event: %+v\n", event)
+		for i := 0; i < 10; i++ {
+			event := etcdbus.NewEvent("sports/football", []byte(fmt.Sprintf("Event %d", i)))
+			err := eb.Publish(ctx, event)
+			if err != nil {
+				log.Printf("Failed to publish event: %v", err)
+			} else {
+				fmt.Printf("Published: Event %d\n", i)
+			}
+			time.Sleep(time.Second)
 		}
 	}()
 
-	// Publish events
-	for i := 0; i < 5; i++ {
-		event := etcdbus.NewEvent("test-topic", []byte(fmt.Sprintf("Hello, World! %d", i)))
-		err := eb.Publish(context.Background(), event)
-		if err != nil {
-			log.Printf("Failed to publish event: %v", err)
+	// Wait for all events to be published and potentially received
+	time.Sleep(15 * time.Second)
+
+	// Fetch history
+	history, err := eb.GetHistory(ctx, "sports/football", 5)
+	if err != nil {
+		log.Printf("Failed to fetch history: %v", err)
+	} else {
+		for _, event := range history {
+			fmt.Printf("Historical event: %s\n", string(event.Data))
 		}
-		time.Sleep(time.Second)
 	}
 
-	// Wait for events to be processed
-	time.Sleep(5 * time.Second)
+	fmt.Println("Program completed")
 }

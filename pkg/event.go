@@ -1,4 +1,4 @@
-package etcdbus
+package etcstruct
 
 import (
 	"encoding/json"
@@ -6,10 +6,11 @@ import (
 )
 
 type Event struct {
-	ID        string    `json:"id"`
-	Topic     string    `json:"topic"`
-	Data      []byte    `json:"data"`
-	Timestamp time.Time `json:"timestamp"`
+	ID        string            `json:"id"`
+	Topic     string            `json:"topic"`
+	Data      []byte            `json:"data"`
+	Timestamp time.Time         `json:"timestamp"`
+	Headers   map[string]string `json:"headers"`
 }
 
 func NewEvent(topic string, data []byte) *Event {
@@ -18,6 +19,7 @@ func NewEvent(topic string, data []byte) *Event {
 		Topic:     topic,
 		Data:      data,
 		Timestamp: time.Now(),
+		Headers:   make(map[string]string),
 	}
 }
 
