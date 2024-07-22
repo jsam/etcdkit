@@ -15,23 +15,27 @@ func matchTopic(subscriptionTopic, eventTopic string) bool {
 	subParts := strings.Split(subscriptionTopic, "/")
 	eventParts := strings.Split(eventTopic, "/")
 
-	if len(subParts) > len(eventParts) {
-		fmt.Println("Subscription parts longer than event parts")
-		return false
+	for i := 0; i < len(subParts); i++ {
+		// If we've reached the end of eventParts but not subParts, it's only a match if the remaining subPart is "#"
+		if i >= len(eventParts) {
+			return subParts[i] == "#" && i == len(subParts)-1
+		}
+
+		switch subParts[i] {
+		case "#":
+			return i == len(subParts)-1 // '#' must be the last part
+		case "+":
+			continue // '+' matches any single part
+		default:
+			if subParts[i] != eventParts[i] {
+				fmt.Printf("Mismatch at part %d: sub=%s, event=%s\n", i, subParts[i], eventParts[i])
+				return false
+			}
+		}
 	}
 
-	for i, subPart := range subParts {
-		if subPart == "#" {
-			fmt.Println("Matched multi-level wildcard")
-			return true
-		}
-		if subPart != "+" && subPart != eventParts[i] {
-			fmt.Printf("Mismatch at part %d: sub=%s, event=%s\n", i, subPart, eventParts[i])
-			return false
-		}
-	}
-
-	result := len(subParts) == len(eventParts)
+	// If we've reached here, all parts matched. It's a match if we've used up all eventParts.
+	result := len(eventParts) == len(subParts)
 	fmt.Printf("Match result: %v\n", result)
 	return result
 }
@@ -97,7 +101,9 @@ func (eb *EventBus) Subscribe(topic string, ch chan<- *Event) error {
 }
 
 func (eb *EventBus) watch(topic string, ch chan<- *Event) {
-	watchPrefix := fmt.Sprintf("%s/%s", eb.prefix, topic)
+	topicCleaned := strings.ReplaceAll(topic, "+", "")
+	topicCleaned = strings.ReplaceAll(topicCleaned, "#", "")
+	watchPrefix := fmt.Sprintf("%s/%s", eb.prefix, topicCleaned)
 	fmt.Printf("Watching prefix: %s\n", watchPrefix)
 
 	watchChan := eb.client.Watch(context.Background(), watchPrefix, clientv3.WithPrefix())

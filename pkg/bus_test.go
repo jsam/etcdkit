@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
@@ -117,6 +118,131 @@ func TestSubscribe(t *testing.T) {
 	event := <-eventChan
 	assert.Equal(t, "topic1", event.Topic)
 	assert.Equal(t, []byte("test data"), event.Data)
+}
+
+func TestWildcardSubscription(t *testing.T) {
+	mockClient := new(mockEtcdClient)
+	eb := &EventBus{
+		client:      mockClient,
+		prefix:      "test",
+		subscribers: make(map[string][]chan<- *Event),
+	}
+
+	watchChan := make(chan clientv3.WatchResponse)
+	mockClient.On("Watch", mock.Anything, "test/sports/", mock.Anything).Return((clientv3.WatchChan)(watchChan))
+
+	// Create a channel to receive events
+	eventChan := make(chan *Event, 3) // Buffer size of 3 to hold all expected events
+
+	// Subscribe to the wildcard topic
+	err := eb.Subscribe("sports/+", eventChan)
+	assert.NoError(t, err)
+
+	// Publish events to different sports topics
+	go func() {
+		watchChan <- createTestEvent("sports/football", "test/sports/football/1", "football data")
+		watchChan <- createTestEvent("sports/basketball", "test/sports/basketball/1", "basketball data")
+		watchChan <- createTestEvent("sports/tennis", "test/sports/tennis/1", "tennis data")
+		close(watchChan)
+	}()
+
+	// Collect received events
+	receivedEvents := make([]*Event, 0, 3)
+	timeout := time.After(2 * time.Second)
+
+	for i := 0; i < 3; i++ {
+		select {
+		case event := <-eventChan:
+			receivedEvents = append(receivedEvents, event)
+		case <-timeout:
+			t.Fatal("Timeout waiting for events")
+		}
+	}
+
+	// Check if we received all 3 events
+	assert.Equal(t, 3, len(receivedEvents), "Expected to receive 3 events")
+
+	// Check if the received events match the published ones
+	expectedTopics := []string{"sports/football", "sports/basketball", "sports/tennis"}
+	expectedData := []string{"football data", "basketball data", "tennis data"}
+
+	for i, event := range receivedEvents {
+		assert.Contains(t, expectedTopics, event.Topic, "Unexpected topic received")
+		assert.Equal(t, []byte(expectedData[i]), event.Data, "Unexpected data for topic %s", event.Topic)
+	}
+
+	// Clean up
+	eb.Unsubscribe("sports/+", eventChan)
+}
+
+func TestIntegrationWildcardSubscription(t *testing.T) {
+	// Skip if not running integration tests
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	// Connect to etcd
+	endpoints := []string{"localhost:2379"} // Adjust this to your etcd endpoint
+	eb, err := NewEventBus(endpoints, "test")
+	require.NoError(t, err)
+	defer eb.Close()
+
+	// Check connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err = eb.CheckConnection(ctx)
+	require.NoError(t, err, "Failed to connect to etcd")
+
+	// Create a channel to receive events
+	eventChan := make(chan *Event, 3)
+
+	// Subscribe to the wildcard topic
+	err = eb.Subscribe("sports/+", eventChan)
+	require.NoError(t, err)
+
+	// Publish events to different sports topics
+	sportsTopics := []string{"sports/football", "sports/basketball", "sports/tennis"}
+	for _, topic := range sportsTopics {
+		event := NewEvent(topic, []byte(topic+" data"))
+		err = eb.Publish(context.Background(), event)
+		require.NoError(t, err)
+	}
+
+	// Collect received events
+	receivedEvents := make([]*Event, 0, 3)
+	timeout := time.After(5 * time.Second)
+
+	for i := 0; i < 3; i++ {
+		select {
+		case event := <-eventChan:
+			receivedEvents = append(receivedEvents, event)
+		case <-timeout:
+			t.Fatal("Timeout waiting for events")
+		}
+	}
+
+	// Check if we received all 3 events
+	assert.Equal(t, 3, len(receivedEvents), "Expected to receive 3 events")
+
+	// Check if the received events match the published ones
+	for _, event := range receivedEvents {
+		assert.Contains(t, sportsTopics, event.Topic, "Unexpected topic received")
+		assert.Equal(t, []byte(event.Topic+" data"), event.Data, "Unexpected data for topic %s", event.Topic)
+	}
+
+	// Clean up
+	eb.Unsubscribe("sports/+", eventChan)
+
+	// Verify that the events are in etcd
+	for _, topic := range sportsTopics {
+		history, err := eb.GetHistory(context.Background(), topic, 1)
+		require.NoError(t, err)
+		assert.Equal(t, 1, len(history), "Expected 1 event in history for topic %s", topic)
+		if len(history) > 0 {
+			assert.Equal(t, topic, history[0].Topic)
+			assert.Equal(t, []byte(topic+" data"), history[0].Data)
+		}
+	}
 }
 
 func TestUnsubscribe(t *testing.T) {

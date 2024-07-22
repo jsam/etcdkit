@@ -34,3 +34,6 @@ go.work.sum
 .vscode/
 *.swp
 *.swo
+
+# macos
+.DS_Store
