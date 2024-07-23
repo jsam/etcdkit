@@ -11,7 +11,7 @@ import (
 )
 
 func matchTopic(subscriptionTopic, eventTopic string) bool {
-	fmt.Printf("Matching topics: subscription=%s, event=%s\n", subscriptionTopic, eventTopic)
+	//InfoLogger.Printf("Matching topics: subscription=%s, event=%s", subscriptionTopic, eventTopic)
 	subParts := strings.Split(subscriptionTopic, "/")
 	eventParts := strings.Split(eventTopic, "/")
 
@@ -28,7 +28,7 @@ func matchTopic(subscriptionTopic, eventTopic string) bool {
 			continue // '+' matches any single part
 		default:
 			if subParts[i] != eventParts[i] {
-				fmt.Printf("Mismatch at part %d: sub=%s, event=%s\n", i, subParts[i], eventParts[i])
+				DebugLogger.Printf("Mismatch at part %d: sub=%s, event=%s", i, subParts[i], eventParts[i])
 				return false
 			}
 		}
@@ -36,12 +36,12 @@ func matchTopic(subscriptionTopic, eventTopic string) bool {
 
 	// If we've reached here, all parts matched. It's a match if we've used up all eventParts.
 	result := len(eventParts) == len(subParts)
-	fmt.Printf("Match result: %v\n", result)
+	InfoLogger.Printf("Match result: %v", result)
 	return result
 }
 
 type EventBus struct {
-	client      etcdClientInterface
+	client      EtcdClientInterface
 	prefix      string
 	subscribers map[string][]chan<- *Event
 	mu          sync.RWMutex
@@ -85,7 +85,7 @@ func (eb *EventBus) Publish(ctx context.Context, event *Event) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Published event with key: %s\n", key)
+	InfoLogger.Printf("Published event with key: %s", key)
 	return err
 }
 
@@ -104,28 +104,29 @@ func (eb *EventBus) watch(topic string, ch chan<- *Event) {
 	topicCleaned := strings.ReplaceAll(topic, "+", "")
 	topicCleaned = strings.ReplaceAll(topicCleaned, "#", "")
 	watchPrefix := fmt.Sprintf("%s/%s", eb.prefix, topicCleaned)
-	fmt.Printf("Watching prefix: %s\n", watchPrefix)
+	InfoLogger.Printf("Watching prefix: %s", watchPrefix)
 
 	watchChan := eb.client.Watch(context.Background(), watchPrefix, clientv3.WithPrefix())
 
 	for response := range watchChan {
 		if response.Err() != nil {
-			fmt.Printf("Watch error: %v\n", response.Err())
+			ErrorLogger.Printf("Watch error: %v", response.Err())
 			continue
 		}
 		for _, ev := range response.Events {
-			fmt.Printf("Received event from etcd: Type=%s, Key=%s\n", ev.Type, string(ev.Kv.Key))
+			DebugLogger.Printf("Received event from etcd: Type=%s, Key=%s", ev.Type, string(ev.Kv.Key))
 			if ev.Type == clientv3.EventTypePut {
 				event, err := UnmarshalEvent(ev.Kv.Value)
 				if err != nil {
-					fmt.Printf("Error unmarshalling event: %v\n", err)
+					ErrorLogger.Printf("Error unmarshalling event: %v", err)
 					continue
 				}
 				if matchTopic(topic, event.Topic) {
-					fmt.Printf("Sending event to channel: %s\n", event.ID)
+					DebugLogger.Printf("Sending event to channel: %s", event.ID)
 					ch <- event
+					DebugLogger.Printf("Event sent to channel: %s", event.ID)
 				} else {
-					fmt.Printf("Topic mismatch: subscription=%s, event=%s\n", topic, event.Topic)
+					DebugLogger.Printf("Topic mismatch: subscription=%s, event=%s", topic, event.Topic)
 				}
 			}
 		}
@@ -182,4 +183,12 @@ func (eb *EventBus) GetHistory(ctx context.Context, topic string, limit int64) (
 	}
 
 	return events, nil
+}
+
+func (eb *EventBus) Prefix() string {
+	return eb.prefix
+}
+
+func (eb *EventBus) Client() EtcdClientInterface {
+	return eb.client
 }

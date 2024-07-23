@@ -32,36 +32,6 @@ func createTestEvent(topic, key, value string) clientv3.WatchResponse {
 	}
 }
 
-// Mock etcd client
-type mockEtcdClient struct {
-	mock.Mock
-}
-
-func (m *mockEtcdClient) Get(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error) {
-	args := m.Called(ctx, key, opts)
-	return args.Get(0).(*clientv3.GetResponse), args.Error(1)
-}
-
-func (m *mockEtcdClient) Put(ctx context.Context, key, val string, opts ...clientv3.OpOption) (*clientv3.PutResponse, error) {
-	args := m.Called(ctx, key, val, opts)
-	return args.Get(0).(*clientv3.PutResponse), args.Error(1)
-}
-
-func (m *mockEtcdClient) Watch(ctx context.Context, key string, opts ...clientv3.OpOption) clientv3.WatchChan {
-	args := m.Called(ctx, key, opts)
-	return args.Get(0).(clientv3.WatchChan)
-}
-
-func (m *mockEtcdClient) Grant(ctx context.Context, ttl int64) (*clientv3.LeaseGrantResponse, error) {
-	args := m.Called(ctx, ttl)
-	return args.Get(0).(*clientv3.LeaseGrantResponse), args.Error(1)
-}
-
-func (m *mockEtcdClient) Close() error {
-	args := m.Called()
-	return args.Error(0)
-}
-
 func TestNewEventBus(t *testing.T) {
 	eb, err := NewEventBus([]string{"localhost:2379"}, "test_prefix")
 	assert.NoError(t, err)
@@ -70,7 +40,7 @@ func TestNewEventBus(t *testing.T) {
 }
 
 func TestCheckConnection(t *testing.T) {
-	mockClient := new(mockEtcdClient)
+	mockClient := new(MockEtcdClient)
 	eb := &EventBus{client: mockClient, prefix: "test"}
 
 	mockClient.On("Get", mock.Anything, "health_check", mock.Anything).Return(&clientv3.GetResponse{}, nil)
@@ -82,7 +52,7 @@ func TestCheckConnection(t *testing.T) {
 }
 
 func TestPublish(t *testing.T) {
-	mockClient := new(mockEtcdClient)
+	mockClient := new(MockEtcdClient)
 	eb := &EventBus{client: mockClient, prefix: "test"}
 
 	event := NewEvent("topic1", []byte("test data"))
@@ -97,7 +67,7 @@ func TestPublish(t *testing.T) {
 }
 
 func TestSubscribe(t *testing.T) {
-	mockClient := new(mockEtcdClient)
+	mockClient := new(MockEtcdClient)
 	eb := &EventBus{
 		client:      mockClient,
 		prefix:      "test",
@@ -121,7 +91,7 @@ func TestSubscribe(t *testing.T) {
 }
 
 func TestWildcardSubscription(t *testing.T) {
-	mockClient := new(mockEtcdClient)
+	mockClient := new(MockEtcdClient)
 	eb := &EventBus{
 		client:      mockClient,
 		prefix:      "test",
@@ -246,7 +216,7 @@ func TestIntegrationWildcardSubscription(t *testing.T) {
 }
 
 func TestUnsubscribe(t *testing.T) {
-	mockClient := new(mockEtcdClient)
+	mockClient := new(MockEtcdClient)
 	eb := &EventBus{
 		client:      mockClient,
 		prefix:      "test",
@@ -277,7 +247,7 @@ func TestUnsubscribe(t *testing.T) {
 }
 
 func TestGetHistory(t *testing.T) {
-	mockClient := new(mockEtcdClient)
+	mockClient := new(MockEtcdClient)
 	eb := &EventBus{client: mockClient, prefix: "test"}
 
 	// Create some test events
